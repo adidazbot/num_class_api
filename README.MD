@@ -1,7 +1,7 @@
 # Number Classification API FOR STAGE ONE 
 
 ## 🚀 Live API URL
-https://num_class_api.up.railway.app
+https://railway.com/project/018804f7-6e6c-44e2-8fa9-6a1b3285b019/service/f2dd8c0c-168a-4fbc-9a7d-a3d84062c1bd?environmentId=f10a999d-60ed-4a56-998a-69705445c233&id=b1b9423d-fbe6-4154-845c-a91a8a59d875
 
 ## 📌 Endpoint
 GET `/api/classify-number?number=371`
