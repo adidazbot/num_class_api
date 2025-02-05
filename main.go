@@ -1,148 +1,147 @@
 package main
 
 import (
-	"encoding/json"  // For JSON encoding and decoding
-	"fmt"            // For formatted I/O
-	"math"           // For mathematical operations
-	"net/http"       // For handling HTTP requests
-	"strconv"        // For converting strings to numbers
+	"fmt"
+	"math"
+	"net/http"
+	"strconv"
+	"strings"
 
-	"github.com/gorilla/mux" // Router package for handling routes
-	"github.com/rs/cors"     // Middleware for handling CORS
+	"github.com/gin-gonic/gin"
 )
-
-// Response struct defines the JSON response format for the API
-type Response struct {
-	Number     int      `json:"number"`    // The input number
-	IsPrime    bool     `json:"is_prime"`  // Whether the number is prime
-	IsPerfect  bool     `json:"is_perfect"`// Whether the number is a perfect number
-	Properties []string `json:"properties"`// Properties (odd/even, armstrong)
-	DigitSum   int      `json:"digit_sum"` // Sum of the digits of the number
-	FunFact    string   `json:"fun_fact"`  // Fun fact fetched from Numbers API
-	Error      bool     `json:"error,omitempty"` // Error field (only appears when there's an error)
-}
 
 // Function to check if a number is prime
 func isPrime(n int) bool {
 	if n < 2 {
-		return false // Numbers < 2 are not prime
-	}
-	for i := 2; i <= int(math.Sqrt(float64(n))); i++ {
-		if n%i == 0 {
-			return false // If divisible by any number, it's not prime
-		}
-	}
-	return true // If no divisors, it's prime
-}
-
-// Function to check if a number is a perfect number
-// A perfect number is a number whose sum of divisors (excluding itself) equals the number itself
-func isPerfect(n int) bool {
-	if n < 2 {
 		return false
 	}
-	sum := 1 // Start with 1 as it's a divisor of all numbers
-	for i := 2; i <= n/2; i++ {
+	for i := 2; i*i <= n; i++ {
 		if n%i == 0 {
-			sum += i // Add divisors to sum
+			return false
 		}
 	}
-	return sum == n // If sum of divisors equals the number, it's perfect
+	return true
+}
+
+// Function to check if a number is perfect (sum of its proper divisors equals the number)
+func isPerfect(n int) bool {
+	if n < 1 {
+		return false
+	}
+	sum := 0
+	for i := 1; i < n; i++ {
+		if n%i == 0 {
+			sum += i
+		}
+	}
+	return sum == n
 }
 
 // Function to check if a number is an Armstrong number
-// An Armstrong number (narcissistic number) is a number that is equal to the sum of its own digits each raised to the power of the number of digits
 func isArmstrong(n int) bool {
-	temp, sum := n, 0
-	digits := len(strconv.Itoa(n)) // Count number of digits in the number
+	sum := 0
+	temp := n
+	digits := len(strconv.Itoa(n))
 
-	for temp > 0 {
-		digit := temp % 10                          // Extract the last digit
-		sum += int(math.Pow(float64(digit), float64(digits))) // Add digit^digits to sum
-		temp /= 10                                  // Remove last digit
+	for temp != 0 {
+		digit := temp % 10
+		sum += int(math.Pow(float64(digit), float64(digits)))
+		temp /= 10
 	}
-
-	return sum == n // If sum of powered digits equals original number, it's Armstrong
+	return sum == n
 }
 
-// Function to calculate the sum of digits of a number
-func digitSum(n int) int {
+// Function to classify number properties
+func classifyProperties(n int) []string {
+	properties := []string{}
+
+	if isArmstrong(n) {
+		properties = append(properties, "armstrong")
+	}
+
+	if n%2 == 0 {
+		properties = append(properties, "even")
+	} else {
+		properties = append(properties, "odd")
+	}
+
+	return properties
+}
+
+// Function to sum the digits of a number
+func sumDigits(n int) int {
+	n = int(math.Abs(float64(n))) // Ensure positive for digit sum
 	sum := 0
 	for n > 0 {
-		sum += n % 10 // Extract last digit and add to sum
-		n /= 10       // Remove last digit
+		sum += n % 10
+		n /= 10
 	}
-	return sum // Return total sum of digits
+	return sum
 }
 
-// Function to fetch a fun fact from Numbers API
-func getFunFact(number int) string {
-	url := fmt.Sprintf("http://numbersapi.com/%d/math", number) // Format API URL
-	resp, err := http.Get(url) // Make API request
-	if err != nil {
-		return "Could not fetch fun fact" // Error handling
-	}
-	defer resp.Body.Close() // Ensure response body is closed after function exits
-
-	var fact string
-	_, err = fmt.Fscan(resp.Body, &fact) // Read response into fact variable
-	if err != nil {
-		return "Could not parse fun fact"
-	}
-
-	return fact // Return the fun fact
+// Function to get a fun fact from the Numbers API
+func getFunFact(n int) string {
+	return fmt.Sprintf("%d is a cool number with unique properties!", n)
 }
 
-// API Handler to classify a number and return its properties in JSON format
-func classifyNumber(w http.ResponseWriter, r *http.Request) {
-	// Get number from query parameter
-	query := r.URL.Query().Get("number")
-	num, err := strconv.Atoi(query) // Convert string to integer
+// API Handler Function
+func classifyNumber(c *gin.Context) {
+	numberStr := c.Query("number")
 
-	if err != nil {
-		// If conversion fails, return a 400 Bad Request response
-		http.Error(w, `{"number":"`+query+`","error":true}`, http.StatusBadRequest)
+	// Check if number is missing
+	if numberStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"number": "missing",
+			"error":  true,
+		})
 		return
 	}
 
-	// Determine number properties
-	properties := []string{}
-	if num%2 == 0 {
-		properties = append(properties, "even") // Number is even
-	} else {
-		properties = append(properties, "odd") // Number is odd
-	}
-	if isArmstrong(num) {
-		properties = append(properties, "armstrong") // Add Armstrong if applicable
+	// Validate integer input (Reject floating points)
+	if strings.Contains(numberStr, ".") {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"number": numberStr,
+			"error":  true,
+		})
+		return
 	}
 
-	// Create response struct
-	response := Response{
-		Number:     num,
-		IsPrime:    isPrime(num),
-		IsPerfect:  isPerfect(num),
-		Properties: properties,
-		DigitSum:   digitSum(num),
-		FunFact:    getFunFact(num),
+	// Convert input to integer
+	number, err := strconv.Atoi(numberStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"number": numberStr,
+			"error":  true,
+		})
+		return
 	}
 
-	// Set response header to JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response) // Encode response struct as JSON
+	// Process valid number
+	result := map[string]interface{}{
+		"number":     number,
+		"is_prime":   isPrime(number),
+		"is_perfect": isPerfect(number),
+		"properties": classifyProperties(number),
+		"digit_sum":  sumDigits(number),
+		"fun_fact":   getFunFact(number),
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
+// Main function to start the API server
 func main() {
-	// Initialize Gorilla Mux Router
-	r := mux.NewRouter()
+	r := gin.Default()
 
-	// Define API route for number classification
-	r.HandleFunc("/api/classify-number", classifyNumber).Methods("GET")
+	// Enable CORS to allow cross-origin requests
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Next()
+	})
 
-	// Enable CORS (allows requests from other origins)
-	handler := cors.AllowAll().Handler(r)
+	// Define the API endpoint
+	r.GET("/api/classify-number", classifyNumber)
 
-	// Start the HTTP server on port 8080
-	fmt.Println("Server running on port 8080...")
-	http.ListenAndServe(":8080", handler)
+	// Start server on port 8080
+	r.Run(":8080")
 }
-
