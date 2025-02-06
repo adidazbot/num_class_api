@@ -7,17 +7,20 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-// classifyNumber handles the number classification and returns JSON response.
+// classifyNumber handles number classification and returns JSON response.
 func classifyNumber(c *gin.Context) {
 	numberStr := c.Query("number") // Get number from query params
+	numberStr = strings.TrimSpace(numberStr)
 
-	// Try to parse input as an integer first
-	number, err := strconv.ParseFloat(numberStr, 64)
+	// Try to parse input as an integer
+	number, err := strconv.Atoi(numberStr)
 	if err != nil {
+		// Return 400 Bad Request for invalid input
 		c.JSON(http.StatusBadRequest, gin.H{
 			"number": numberStr,
 			"error":  true,
@@ -27,10 +30,10 @@ func classifyNumber(c *gin.Context) {
 
 	// Determine number properties
 	properties := []string{}
-	if isArmstrong(int(number)) {
+	if isArmstrong(number) {
 		properties = append(properties, "armstrong")
 	}
-	if int(number)%2 == 0 {
+	if number%2 == 0 {
 		properties = append(properties, "even")
 	} else {
 		properties = append(properties, "odd")
@@ -38,15 +41,15 @@ func classifyNumber(c *gin.Context) {
 
 	// Prepare JSON response
 	response := gin.H{
-		"number":    number,
-		"is_prime":  isPrime(int(number)),
-		"is_perfect": isPerfect(int(number)),
+		"number":     number,
+		"is_prime":   isPrime(number),
+		"is_perfect": isPerfect(number),
 		"properties": properties,
-		"digit_sum":  digitSum(int(number)),
+		"digit_sum":  digitSum(number),
 		"fun_fact":   getFunFact(number),
 	}
 
-	// Return a successful response
+	// Return successful response
 	c.JSON(http.StatusOK, response)
 }
 
@@ -91,6 +94,7 @@ func isArmstrong(n int) bool {
 
 // digitSum calculates the sum of digits of a number.
 func digitSum(n int) int {
+	n = int(math.Abs(float64(n))) // Ensure positive sum for negatives
 	sum := 0
 	for n != 0 {
 		sum += n % 10
@@ -99,9 +103,9 @@ func digitSum(n int) int {
 	return sum
 }
 
-// getFunFact fetches a fun fact about the number from Numbers API.
-func getFunFact(n float64) string {
-	return fmt.Sprintf("%.2f is a cool number with unique properties!", n) // Placeholder response
+// getFunFact fetches a fun fact about the number using Numbers API.
+func getFunFact(n int) string {
+	return fmt.Sprintf("%d is an interesting number!", n) // Placeholder fun fact
 }
 
 func main() {
@@ -111,6 +115,7 @@ func main() {
 	// Enable CORS (Allow requests from anywhere)
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Content-Type", "application/json")
 		c.Next()
 	})
 
