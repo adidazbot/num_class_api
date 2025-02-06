@@ -14,9 +14,9 @@ import (
 // classifyNumber handles the number classification and returns JSON response.
 func classifyNumber(c *gin.Context) {
 	numberStr := c.Query("number") // Get number from query params
-	number, err := strconv.Atoi(numberStr)
 
-	// Handle invalid inputs
+	// Try to parse input as an integer first
+	number, err := strconv.ParseFloat(numberStr, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"number": numberStr,
@@ -27,10 +27,10 @@ func classifyNumber(c *gin.Context) {
 
 	// Determine number properties
 	properties := []string{}
-	if isArmstrong(number) {
+	if isArmstrong(int(number)) {
 		properties = append(properties, "armstrong")
 	}
-	if number%2 == 0 {
+	if int(number)%2 == 0 {
 		properties = append(properties, "even")
 	} else {
 		properties = append(properties, "odd")
@@ -39,10 +39,10 @@ func classifyNumber(c *gin.Context) {
 	// Prepare JSON response
 	response := gin.H{
 		"number":    number,
-		"is_prime":  isPrime(number),
-		"is_perfect": isPerfect(number),
+		"is_prime":  isPrime(int(number)),
+		"is_perfect": isPerfect(int(number)),
 		"properties": properties,
-		"digit_sum":  digitSum(number),
+		"digit_sum":  digitSum(int(number)),
 		"fun_fact":   getFunFact(number),
 	}
 
@@ -100,8 +100,8 @@ func digitSum(n int) int {
 }
 
 // getFunFact fetches a fun fact about the number from Numbers API.
-func getFunFact(n int) string {
-	return fmt.Sprintf("%d is a cool number with unique properties, it might just be number of your best day!", n) // Placeholder response
+func getFunFact(n float64) string {
+	return fmt.Sprintf("%.2f is a cool number with unique properties!", n) // Placeholder response
 }
 
 func main() {
