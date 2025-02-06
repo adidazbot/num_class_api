@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -17,16 +18,19 @@ func classifyNumber(c *gin.Context) {
 	numberStr := c.Query("number") // Get number from query params
 	numberStr = strings.TrimSpace(numberStr)
 
-	// Try to parse input as an integer
-	number, err := strconv.Atoi(numberStr)
+	// Try to parse input as a float (to handle floating-point numbers)
+	numberFloat, err := strconv.ParseFloat(numberStr, 64)
 	if err != nil {
-		// Return 400 Bad Request for invalid input
+		// Return 400 Bad Request for invalid input (non-numeric)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"number": numberStr,
 			"error":  true,
 		})
 		return
 	}
+
+	// Convert float to an integer (truncate decimal part)
+	number := int(numberFloat)
 
 	// Determine number properties
 	properties := []string{}
@@ -105,7 +109,24 @@ func digitSum(n int) int {
 
 // getFunFact fetches a fun fact about the number using Numbers API.
 func getFunFact(n int) string {
-	return fmt.Sprintf("%d is an interesting number!", n) // Placeholder fun fact
+	url := fmt.Sprintf("http://numbersapi.com/%d/math?json", n)
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Sprintf("%d is an interesting number!", n) // Fallback fun fact
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return fmt.Sprintf("%d is an interesting number!", n) // Fallback fun fact
+	}
+
+	if fact, exists := result["text"].(string); exists {
+		return fact
+	}
+
+	return fmt.Sprintf("%d is an interesting number!", n) // Final fallback
 }
 
 func main() {
