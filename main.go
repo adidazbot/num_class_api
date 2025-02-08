@@ -72,6 +72,10 @@ func isPrime(n int) bool {
 
 // isPerfect checks if a number is a perfect number.
 func isPerfect(n int) bool {
+	if n <= 0 { // Ensure 0 and negative numbers are not considered perfect
+		return false
+	}
+	
 	sum := 0
 	for i := 1; i < n; i++ {
 		if n%i == 0 {
